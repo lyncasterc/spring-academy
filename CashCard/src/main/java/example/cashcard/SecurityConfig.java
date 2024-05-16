@@ -50,6 +50,13 @@ class SecurityConfig {
                 .build();
 
 
-        return new InMemoryUserDetailsManager(sarah, hank);
+        UserDetails steven = users
+                .username("steven1")
+                .password(passwordEncoder.encode("abc123"))
+                .roles("CARD-OWNER")
+                .build();
+
+
+        return new InMemoryUserDetailsManager(sarah, hank, steven);
     }
 }

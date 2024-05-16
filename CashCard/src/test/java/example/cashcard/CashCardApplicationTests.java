@@ -4,9 +4,12 @@ import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import net.minidev.json.JSONArray;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
@@ -57,8 +60,8 @@ class CashCardApplicationTests {
 
     @Test
 //    @DirtiesContext tells Spring to start with clean state
-    // bc this test can theoretically mess with other tests since it creates a new cashCard,
-    // but it doesn't seem to be a problem for me right now
+        // bc this test can theoretically mess with other tests since it creates a new cashCard,
+        // but it doesn't seem to be a problem for me right now
     void shouldCreateNewCashCard() {
         CashCard newCashCard = new CashCard(null, 250.00, null);
 
@@ -89,7 +92,7 @@ class CashCardApplicationTests {
     @Test
     void shouldNotCreateNewCashCard_WhenRequestBodyContainsId() {
         // passes in an id, which would not be a valid request
-        CashCard newCashCard = new CashCard(1L, 250.00,"sarah1");
+        CashCard newCashCard = new CashCard(1L, 250.00, "sarah1");
         ResponseEntity<Void> res = restTemplate
                 .withBasicAuth("sarah1", "abc123")
                 .postForEntity("/cashcards", newCashCard, Void.class);
@@ -193,6 +196,102 @@ class CashCardApplicationTests {
         ResponseEntity<String> res = restTemplate
                 .withBasicAuth("sarah1", "abc123")
                 .getForEntity("/cashcards/103", String.class); // steven1's cash card
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+
+    @Test
+    @DirtiesContext
+    void shouldUpdateExistingCard() {
+        CashCard cashCardUpdate = new CashCard(null, 19.99, null);
+        HttpEntity<CashCard> request = new HttpEntity<>(cashCardUpdate);
+        ResponseEntity<Void> res = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .exchange("/cashcards/99", HttpMethod.PUT, request, Void.class);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        ResponseEntity<String> res2 = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .getForEntity("/cashcards/99", String.class);
+
+        DocumentContext documentContext = JsonPath.parse(res2.getBody());
+        Double amount = documentContext.read("$.amount");
+        Number id = documentContext.read("$.id");
+
+        assertThat(id).isEqualTo(99);
+        assertThat(amount).isEqualTo(19.99);
+    }
+
+    @Test
+    @DirtiesContext
+    void shouldNotUpdateNonExistentCard() {
+        CashCard cashCardUpdate = new CashCard(null, 19.99, null);
+        HttpEntity<CashCard> request = new HttpEntity<>(cashCardUpdate);
+        ResponseEntity<Void> res = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .exchange("/cashcards/1002", HttpMethod.PUT, request, Void.class);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    @DirtiesContext
+    void shouldNotUpdateCashCard_WhenUserIsNotCardOwner() {
+        CashCard cashCardUpdate = new CashCard(null, 19.99, null);
+        HttpEntity<CashCard> request = new HttpEntity<>(cashCardUpdate);
+        ResponseEntity<Void> res = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .exchange("/cashcards/103", HttpMethod.PUT, request, Void.class);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    @DirtiesContext
+    void shouldDeleteExistingCashCard() {
+        ResponseEntity<Void> res = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .exchange("/cashcards/99", HttpMethod.DELETE, null, Void.class);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        // GET request to make sure it's been deleted.
+
+        ResponseEntity<String> res2 = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .getForEntity("/cashcards/99", String.class);
+
+        assertThat(res2.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(res2.getBody()).isBlank();
+    }
+
+
+    @Test
+    @DirtiesContext
+    void shouldNotDeleteCard_WhenUserIsNotCardOwner() {
+        ResponseEntity<Void> res = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .exchange("/cashcards/103", HttpMethod.DELETE, null, Void.class);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        ResponseEntity<String> res2 = restTemplate
+                .withBasicAuth("steven1", "abc123")
+                .getForEntity("/cashcards/103", String.class);
+
+
+        assertThat(res2.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+
+    @Test
+    @DirtiesContext
+    void shouldNotDeleteNonExistentCard() {
+        ResponseEntity<Void> res = restTemplate
+                .withBasicAuth("sarah1", "abc123")
+                .exchange("/cashcards/100003", HttpMethod.DELETE, null, Void.class);
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
