@@ -24,7 +24,7 @@ public class Percentage implements Serializable {
 	 * Create a new percentage from the specified value. Value must be between 0 and 1. For example, value .45
 	 * represents 45%. If the value has more than two digits past the decimal point it will be rounded up. For example,
 	 * value .24555 rounds up to .25.
-	 * @param the percentage value
+	 * @param value the percentage value
 	 * @throws IllegalArgumentException if the value is not between 0 and 1
 	 */
 	@JsonCreator
